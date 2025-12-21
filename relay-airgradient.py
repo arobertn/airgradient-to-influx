@@ -16,7 +16,8 @@ from datetime import datetime, timedelta
 import requests
 
 
-# Timeout constants
+# Constants, set as desired
+LOG_LEVEL = logging.INFO
 AIRGRADIENT_TIMEOUT_SEC = 5
 INFLUX_TIMEOUT_SEC = 10
 
@@ -25,16 +26,19 @@ INFLUX_TIMEOUT_SEC = 10
 # Customize as desired
 def convert_data(data: dict) -> dict:
     field_mapping = {
-        "pm02Compensated": "pm_025_comp",
-        "pm003Count": "pm_003_ct",
-        "pm01": "pm_010",
-        "pm10": "pm_100",
-        "rco2": "co2",
-        "atmp": "temperature_c",
-        "rhum": "humidity_pct",
-        "tvocIndex": "tvoc_index",
-        "tvocRaw": "tvoc_raw",
-        "noxIndex": "nox_index",
+        "atmp":             "temperature_c",
+        "noxIndex":         "nox_index",
+        "pm003Count":       "pm_003_ct",
+        "pm005Count":       "pm_005_ct",
+        "pm01Count":        "pm_010_ct",
+        "pm02Compensated":  "pm_025_comp",
+        "pm02Count":        "pm_025_ct",
+        "pm10Count":        "pm_100_ct",
+        "pm50Count":        "pm_050_ct",
+        "rco2":             "co2",
+        "rhum":             "humidity_pct",
+        "tvocIndex":        "tvoc_index",
+        "tvocRaw":          "tvoc_raw",
     }
 
     converted = {}
@@ -60,7 +64,7 @@ handler.setFormatter(
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 )
-logging.basicConfig(level=logging.INFO, handlers=[handler])
+logging.basicConfig(level=LOG_LEVEL, handlers=[handler])
 logger = logging.getLogger(__name__)
 
 
@@ -97,7 +101,7 @@ POST_QUEUE_LIMIT = 20000
 
 # Process Influx FIFO post queue, raising exception on first failure
 def process_post_queue(influx: InfluxServer):
-    logger.info(f"Processing InfluxDB post queue with {len(post_queue)} items")
+    logger.debug(f"Processing InfluxDB post queue with {len(post_queue)} items")
     while post_queue:
         post_data = post_queue[0]
 
@@ -174,7 +178,6 @@ def run(
 
         # Average the samples
         if samples:
-            logger.info("Averaging samples and posting to InfluxDB")
             window_center_time = window_start_time + timedelta(
                 seconds=period_sec * num_samples / 2
             )

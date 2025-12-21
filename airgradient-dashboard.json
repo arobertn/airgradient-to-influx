@@ -503,11 +503,11 @@
                 "value": 30
               },
               {
-                "color": "#b7d96a",
+                "color": "#6ad9c5",
                 "value": 50
               },
               {
-                "color": "#4db6ac",
+                "color": "#4c89b5",
                 "value": 60
               },
               {
@@ -1040,23 +1040,23 @@
             "barAlignment": 0,
             "barWidthFactor": 0.7,
             "drawStyle": "line",
-            "fillOpacity": 80,
-            "gradientMode": "opacity",
+            "fillOpacity": 50,
+            "gradientMode": "scheme",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": 3600000,
+            "insertNulls": 600000,
             "lineInterpolation": "smooth",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
             "showPoints": "never",
             "showValues": false,
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1470,23 +1470,23 @@
             "barAlignment": 0,
             "barWidthFactor": 0.7,
             "drawStyle": "line",
-            "fillOpacity": 100,
-            "gradientMode": "opacity",
+            "fillOpacity": 50,
+            "gradientMode": "scheme",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": 3600000,
+            "insertNulls": 600000,
             "lineInterpolation": "smooth",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
             "showPoints": "never",
             "showValues": false,
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1514,11 +1514,11 @@
                 "value": 30
               },
               {
-                "color": "#b7d96a",
+                "color": "#6ad9d9",
                 "value": 50
               },
               {
-                "color": "#4db6ac",
+                "color": "#4c91b5",
                 "value": 60
               },
               {
@@ -1560,102 +1560,10 @@
           },
           "editorMode": "code",
           "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT time, humidity_pct as \"Arid\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct < 20\nORDER BY time ASC;",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [
-                  {
-                    "name": "co2",
-                    "type": "functionParameter"
-                  }
-                ],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ]
-          },
-          "table": "airquality"
-        },
-        {
-          "dataset": "iox",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "${DS_INFLUXDB-CLOUD-AIRQUALITY}"
-          },
-          "editorMode": "code",
-          "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, humidity_pct as \"Dry\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct >= 20 AND humidity_pct < 30\nORDER BY time ASC;",
-          "refId": "B",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ]
-          }
-        },
-        {
-          "dataset": "iox",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "${DS_INFLUXDB-CLOUD-AIRQUALITY}"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "SELECT time, humidity_pct as \"Normal\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct >= 30 AND humidity_pct < 50\nORDER BY time ASC;",
-          "refId": "C",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ]
-          }
-        },
-        {
-          "dataset": "iox",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "${DS_INFLUXDB-CLOUD-AIRQUALITY}"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "SELECT time, humidity_pct as \"Damp\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct >= 50 AND humidity_pct < 60\nORDER BY time ASC;",
-          "refId": "D",
+          "rawSql": "SELECT time, humidity_pct as \"Wet\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct >= 70\nORDER BY time ASC;",
+          "refId": "F",
           "sql": {
             "columns": [
               {
@@ -1712,8 +1620,8 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, humidity_pct as \"Wet\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct >= 70\nORDER BY time ASC;",
-          "refId": "F",
+          "rawSql": "SELECT time, humidity_pct as \"Damp\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct >= 50 AND humidity_pct < 60\nORDER BY time ASC;",
+          "refId": "D",
           "sql": {
             "columns": [
               {
@@ -1741,8 +1649,8 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, temperature_c as \"Stuffy\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND temperature_c >= 23 AND temperature_c < 25\nORDER BY time ASC;",
-          "refId": "G",
+          "rawSql": "SELECT time, humidity_pct as \"Normal\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct >= 30 AND humidity_pct < 50\nORDER BY time ASC;",
+          "refId": "C",
           "sql": {
             "columns": [
               {
@@ -1770,8 +1678,8 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, temperature_c as \"Hot\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND temperature_c >= 25\nORDER BY time ASC;",
-          "refId": "H",
+          "rawSql": "SELECT time, humidity_pct as \"Dry\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct >= 20 AND humidity_pct < 30\nORDER BY time ASC;",
+          "refId": "B",
           "sql": {
             "columns": [
               {
@@ -1788,6 +1696,40 @@
               }
             ]
           }
+        },
+        {
+          "dataset": "iox",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${DS_INFLUXDB-CLOUD-AIRQUALITY}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT time, humidity_pct as \"Arid\"\nFROM airquality\nWHERE time >= $__timeFrom\n  AND time <= $__timeTo\n  AND humidity_pct < 20\nORDER BY time ASC;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "co2",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ]
+          },
+          "table": "airquality"
         }
       ],
       "title": "Humidity",
@@ -2145,6 +2087,6 @@
   "timezone": "browser",
   "title": "Air quality",
   "uid": "adv8fx2",
-  "version": 30,
+  "version": 33,
   "weekStart": ""
 }

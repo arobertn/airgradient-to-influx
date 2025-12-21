@@ -135,8 +135,8 @@ def post_influx(
             f"Post queue exceeded limit of {POST_QUEUE_LIMIT}. dropped oldest item."
         )
 
-        post_queue.append(post_data)
-        process_post_queue(influx)
+    post_queue.append(post_data)
+    process_post_queue(influx)
 
 
 def run(

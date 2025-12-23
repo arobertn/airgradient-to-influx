@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "relay-airgradient"
-version = "0.8"
+version = "0.8.1"
 description = "A script for fetching Airgradient data and posting to InfluxDB."
 authors = ["Adrian Robert <arobert@interstitiality.net>"]
 license = "MIT"

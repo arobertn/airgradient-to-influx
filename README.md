@@ -28,6 +28,7 @@ need to modify the firmware.
 - Deployment, monitoring, and high availability measures such as restart on
   failure are left to the user.
 - Tests are desirable but not implemented yet.
+- Config file support
 - File-based persistence for the Influx queue could be considered.
 
 
@@ -43,7 +44,7 @@ need to modify the firmware.
 ## Usage
 
 ```bash
-INFLUX_TOKEN=xxx ./relay-airgradient.py <influx_host>/<influx_org>/<influx_bucket> <airgradient_host> loc:<location> <n*period_sec>
+INFLUX_TOKEN=xxx ./relay-airgradient.py <influx_host>/<influx_org>/<influx_bucket> <airgradient_host> loc:<location> <n*period_sec> led:LL/HHMM-HHMM/LL disp:LL/HHMM-HHMM/LL
 ```
 
 ### Arguments
@@ -58,12 +59,35 @@ All arguments are required and can be specified in any order:
 - `<n*period_sec>`: Sampling configuration where `n` is the number of samples
   and `period_sec` is the interval in seconds between samples (e.g., `5*60`
   collects 5 samples at 60-second intervals, posts the average every 5 minutes)
+- `led:LL/HHMM-HHMM/LL` and `disp:LL/HHMM-HHMM/LL` set the LED and display
+   brightness adjustment schedule.
+
+### Light schedule
+
+The Airgradient cloud service manages a daily schedule for adjusting the LED
+bar and display brightness. This is not implemented on the device itself. If
+you want to disconnect your device from the cloud you need to either do
+without this feature, use a home automation system, or implement it
+yourself. If you don't have a home automation system this script can handle
+it.
+
+The `led:` argument sets the daytime period and the nighttime and daytime
+brightness for the LED bar. The `disp:` argument sets the nighttime and
+daytime brightness for the text display and the period to turn the display
+off for longevity purposes.
+
+To disable this feature, set the daytime and off periods to 0 length:
+
+    led:20/1100-1100/100 disp:10/1100-1100/100
+
+The levels are ignored and the exact time doesn't matter as long as start =
+end for both values.
 
 ### Example
 
 ```bash
 export INFLUX_TOKEN="your-influx-api-token"
-./relay-airgradient.py influx.example.com/my-org/sensors airgradient.local loc:bedroom 5*60
+./relay-airgradient.py influx.example.com/my-org/sensors airgradient.local loc:bedroom 5*60 led:20/0800-2000/100 disp:10/0200-0300/100
 ```
 
 This will:
@@ -72,6 +96,8 @@ This will:
 - Calculate the average of all measurements
 - Post the averaged data to InfluxDB with a timestamp at the midpoint of the
   collection window
+- Adjust the LED and display brightness according to the default schedule of
+  Airgradient cloud
 - Repeat indefinitely
 
 This could be run on a router, NAS, Raspberry pi, etc. with `nohup` or through

@@ -26,19 +26,16 @@ INFLUX_TIMEOUT_SEC = 10
 # Customize as desired
 def convert_data(data: dict) -> dict:
     field_mapping = {
-        "atmp":             "temperature_c",
+        "atmpCompensated":  "temperature_c",
         "noxIndex":         "nox_index",
         "pm003Count":       "pm_003_ct",
-        "pm005Count":       "pm_005_ct",
         "pm01Count":        "pm_010_ct",
         "pm02Compensated":  "pm_025_comp",
-        "pm02Count":        "pm_025_ct",
         "pm10Count":        "pm_100_ct",
         "pm50Count":        "pm_050_ct",
         "rco2":             "co2",
-        "rhum":             "humidity_pct",
+        "rhumCompensated":  "humidity_pct",
         "tvocIndex":        "tvoc_index",
-        "tvocRaw":          "tvoc_raw",
     }
 
     converted = {}

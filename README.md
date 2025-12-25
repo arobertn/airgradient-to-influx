@@ -25,23 +25,22 @@ do you need to modify the firmware.
 - **Robust Error Handling**: Failed data retrievals and InfluxDB submissions
   are tolerated. Failed InfluxDB posts are queued for retry on the next
   successful connection, ensuring no data loss during internet disruptions.
-- **Light schedule**: Optionally adjust LED/display brightness per day/night
+- **Light Schedule**: Optionally adjust LED/display brightness per day/night
   schedule.
+- **No Dependencies**: Uses only Python's standard library, no dependencies to
+  install or venvs to manage.
 
 ### Non-features and TODOs
 
 - Deployment, monitoring, and high availability measures such as restart on
   failure are left to the user.
 - Tests are desirable but not implemented yet.
-- Config file support (coming soon).
 - File-based persistence for the Influx queue could be considered.
 
 
 ## Requirements
 
 - Python 3.7+
-- Python requests library
-
 - Airgradient device
 - InfluxDB instance (V2 or above)
 

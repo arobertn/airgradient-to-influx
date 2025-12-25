@@ -12,10 +12,11 @@ import os
 import sys
 import time
 import logging
+import json
 from datetime import datetime, timedelta
 from configparser import ConfigParser
-
-import requests
+from urllib.request import Request, urlopen
+from urllib.parse import urlencode
 
 
 # Constants, set as desired
@@ -50,6 +51,7 @@ def convert_data(data: dict) -> dict:
 
 # No customization needed below here
 #############################################################################
+UTF8_ENCODING = "utf-8"
 
 
 # Configure logging
@@ -92,28 +94,26 @@ class Sampling:
 class AirgradientServer:
     def __init__(self, host: str):
         self.host = host
-        self.session = requests.Session()
-        self.session.headers.update({"Content-Type": "application/json"})
+        self.headers = {"Content-Type": "application/json"}
 
 
 # Call GET http://${airgradient_host}/measures/current and return resulting JSON
 def get_airgradient(airgradient: AirgradientServer) -> dict:
     url = f"http://{airgradient.host}/measures/current"
-    response = airgradient.session.get(url, timeout=AIRGRADIENT_TIMEOUT_SEC)
-    response.raise_for_status()
-    logger.debug(f"AirGradient get measure response: {response.text}")
-    return response.json()
+    req = Request(url, headers=airgradient.headers)
+    with urlopen(req, timeout=AIRGRADIENT_TIMEOUT_SEC) as response:
+        data = response.read().decode(UTF8_ENCODING)
+        logger.debug(f"AirGradient get measure response: {data}")
+        return json.loads(data)
 
 
 # Call PUT http://${airgradient_host}/config
 def put_airgradient(airgradient: AirgradientServer, config: dict) -> bool:
     url = f"http://{airgradient.host}/config"
-    response = airgradient.session.put(
-        url,
-        json=config,
-        timeout=AIRGRADIENT_TIMEOUT_SEC,
-    )
-    response.raise_for_status()
+    data = json.dumps(config).encode(UTF8_ENCODING)
+    req = Request(url, data=data, headers=airgradient.headers, method='PUT')
+    with urlopen(req, timeout=AIRGRADIENT_TIMEOUT_SEC) as response:
+        response.read()  # Success if no exception raised
 
 
 # LED / Display schedule brightness configuration
@@ -183,8 +183,7 @@ class InfluxServer:
         self.host = host
         self.org = org
         self.bucket = bucket
-        self.session = requests.Session()
-        self.session.headers.update({"Authorization": f"Token {token}"})
+        self.headers = {"Authorization": f"Token {token}"}
 
 
 # Global queue for pending Influx posts
@@ -198,14 +197,13 @@ def process_post_queue(influx: InfluxServer):
     while post_queue:
         post_data = post_queue[0]
 
-        status = influx.session.post(
-            f"https://{influx.host}/api/v2/write",
-            params={"bucket": influx.bucket, "org": influx.org},
-            data=post_data,
-            timeout=INFLUX_TIMEOUT_SEC,
-        )
-        logger.debug(f"InfluxDB response status: {status.status_code}")
-        status.raise_for_status()
+        url = f"https://{influx.host}/api/v2/write?{urlencode({'bucket': influx.bucket, 'org': influx.org})}"
+        data = post_data.encode(UTF8_ENCODING)
+        req = Request(url, data=data, headers=influx.headers, method='POST')
+
+        with urlopen(req, timeout=INFLUX_TIMEOUT_SEC) as response:
+            status_code = response.status
+            logger.debug(f"InfluxDB response status: {status_code}")
 
         post_queue.pop(0)
 

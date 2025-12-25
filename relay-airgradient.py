@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 # relay-airgradient.py
-#   ./relay_airgradient.py <influx_host>/<influx_org>/<influx_bucket> <airgradient_host> loc:<location> <n*period_sec> [day:HHMM-HHMM] [off:HHMM-HHMM]
+#   ./relay_airgradient.py [<influx_host>/<influx_org>/<influx_bucket>] [<airgradient_host>] [loc:<location>] [<n*period_sec>] [day:HHMM-HHMM] [off:HHMM-HHMM]
 #
-# Arguments can occur in any order. Required: influx_host/org/bucket, airgradient_host, location, n*period_sec. Optional: day window, off window.
+# Config: relay-airgradient.ini
+# All arguments are optional overrides to the config file and can occur in any order.
 # Host arguments are hostnames, not URLs.
 # The variable INFLUX_TOKEN must be set in the environment.
 
@@ -12,6 +13,7 @@ import sys
 import time
 import logging
 from datetime import datetime, timedelta
+from configparser import ConfigParser
 
 import requests
 
@@ -46,13 +48,16 @@ def convert_data(data: dict) -> dict:
     return converted
 
 
+# No customization needed below here
+#############################################################################
+
+
 # Configure logging
 class PaddedLevelFormatter(logging.Formatter):
     def format(self, record):
         # Pad the levelname to 7 characters (max length of 'WARNING')
         record.levelname = f"{record.levelname:<7}"
         return super().format(record)
-
 
 handler = logging.StreamHandler()
 handler.setFormatter(
@@ -63,6 +68,52 @@ handler.setFormatter(
 )
 logging.basicConfig(level=LOG_LEVEL, handlers=[handler])
 logger = logging.getLogger(__name__)
+
+
+#############################################################################
+# Utility classes and functions
+
+class Sampling:
+    def __init__(
+        self,
+        location: str = None,
+        num_samples: int = None,
+        period_sec: int = None,
+    ):
+        self.location = location
+        self.num_samples = num_samples
+        self.period_sec = period_sec
+
+    def is_complete(self) -> bool:
+        return all([self.location, self.num_samples, self.period_sec])
+
+
+# AirGradient server configuration and session
+class AirgradientServer:
+    def __init__(self, host: str):
+        self.host = host
+        self.session = requests.Session()
+        self.session.headers.update({"Content-Type": "application/json"})
+
+
+# Call GET http://${airgradient_host}/measures/current and return resulting JSON
+def get_airgradient(airgradient: AirgradientServer) -> dict:
+    url = f"http://{airgradient.host}/measures/current"
+    response = airgradient.session.get(url, timeout=AIRGRADIENT_TIMEOUT_SEC)
+    response.raise_for_status()
+    logger.debug(f"AirGradient get measure response: {response.text}")
+    return response.json()
+
+
+# Call PUT http://${airgradient_host}/config
+def put_airgradient(airgradient: AirgradientServer, config: dict) -> bool:
+    url = f"http://{airgradient.host}/config"
+    response = airgradient.session.put(
+        url,
+        json=config,
+        timeout=AIRGRADIENT_TIMEOUT_SEC,
+    )
+    response.raise_for_status()
 
 
 # LED / Display schedule brightness configuration
@@ -92,34 +143,6 @@ class LightSchedule:
         led_schedule = f"{self.led_night_level}/{self.day_start.strftime('%H%M')}-{self.day_end.strftime('%H%M')}/{self.led_day_level}"
         disp_schedule = f"{self.disp_night_level}/{self.off_start.strftime('%H%M')}-{self.off_end.strftime('%H%M')}/{self.disp_day_level}"
         return f"led:{led_schedule} disp:{disp_schedule}"
-
-
-# AirGradient server configuration and session
-class AirgradientServer:
-    def __init__(self, host: str):
-        self.host = host
-        self.session = requests.Session()
-        self.session.headers.update({"Content-Type": "application/json"})
-
-
-# Call GET http://${airgradient_host}/measures/current and return resulting JSON
-def get_airgradient(airgradient: AirgradientServer) -> dict:
-    url = f"http://{airgradient.host}/measures/current"
-    response = airgradient.session.get(url, timeout=AIRGRADIENT_TIMEOUT_SEC)
-    response.raise_for_status()
-    logger.debug(f"AirGradient get measure response: {response.text}")
-    return response.json()
-
-
-# Call PUT http://${airgradient_host}/config
-def put_airgradient(airgradient: AirgradientServer, config: dict) -> bool:
-    url = f"http://{airgradient.host}/config"
-    response = airgradient.session.put(
-        url,
-        json=config,
-        timeout=AIRGRADIENT_TIMEOUT_SEC,
-    )
-    response.raise_for_status()
 
 
 def process_light_schedule(
@@ -209,12 +232,13 @@ def post_influx(
     process_post_queue(influx)
 
 
+#############################################################################
+# Main run loop
+
 def run(
     airgradient: AirgradientServer,
     influx: InfluxServer,
-    location: str,
-    num_samples: int,
-    period_sec: int,
+    sampling: Sampling,
     light_schedule: LightSchedule,
 ):
     # Target time for first sample
@@ -224,12 +248,12 @@ def run(
         # Collect n samples
         samples = []
         window_start_time = next_sample_time
-        for i in range(num_samples):
+        for i in range(sampling.num_samples):
             # Sleep until target time for this sample
             now = datetime.now()
             sleep_time = max(0, (next_sample_time - now).total_seconds())
             logger.debug(
-                f"Sleeping for {sleep_time:.2f} seconds before sample {i + 1}/{num_samples}"
+                f"Sleeping for {sleep_time:.2f} seconds before sample {i + 1}/{sampling.num_samples}"
             )
             if sleep_time > 0:
                 time.sleep(sleep_time)
@@ -252,12 +276,11 @@ def run(
                     logger.warning(f"Error processing light schedule: {type(e).__name__}: {e}")
 
             # Set target time for next sample
-            next_sample_time += timedelta(seconds=period_sec)
+            next_sample_time += timedelta(seconds=sampling.period_sec)
 
-        # Average the samples
         if samples:
             window_center_time = window_start_time + timedelta(
-                seconds=period_sec * num_samples / 2
+                seconds=sampling.period_sec * sampling.num_samples / 2
             )
             averaged_data = {}
             for key in samples[0].keys():
@@ -267,7 +290,7 @@ def run(
             try:
                 post_influx(
                     influx,
-                    location,
+                    sampling.location,
                     window_center_time,
                     averaged_data,
                 )
@@ -276,6 +299,9 @@ def run(
         else:
             logger.warning("No samples collected; posting to InfluxDB skipped.")
 
+
+#############################################################################
+# Configuration
 
 # Parse time window argument (e.g., "0800-1800") into start and end datetime.time objects
 def parse_time_window(time_str: str) -> tuple:
@@ -318,33 +344,59 @@ def parse_light_schedule(schedule_str: str) -> tuple:
 def main():
     usage_str = (
         sys.argv[0]
-        + " <influx_host>/<influx_org>/<influx_bucket> <airgradient_host> loc:<location> <n*period_sec> led:LL/HHMM-HHMM/LL disp:LL/HHMM-HHMM/LL"
+        + " [<influx_host>/<influx_org>/<influx_bucket>] [<airgradient_host>] [loc:<location>] [<n*period_sec>] [led:LL/HHMM-HHMM/LL] [disp:LL/HHMM-HHMM/LL]"
     )
-
-    if len(sys.argv) != 7:
-        logger.error(f"usage: {usage_str}")
-        sys.exit(1)
 
     influx_token = os.environ.get("INFLUX_TOKEN")
     if not influx_token:
         logger.error("Error: INFLUX_TOKEN environment variable not set")
         sys.exit(1)
 
-    args = sys.argv[1:]
+    # Read config file
+    config = ConfigParser()
+    config_file = os.path.join(os.path.dirname(__file__), "relay-airgradient.ini")
+    config.read(config_file)
 
-    # Data fetch / upload
-    influx_host = None
-    influx_org = None
-    influx_bucket = None
-    airgradient_host = None
-    location = None
-    num_samples = None
-    period_sec = None
+    # Data fetch / upload - initialize from config file
+    influx_host = config.get("endpoints", "influx_host", fallback=None)
+    influx_org = config.get("endpoints", "influx_org", fallback=None)
+    influx_bucket = config.get("endpoints", "influx_bucket", fallback=None)
+    airgradient_host = config.get("endpoints", "airgradient_host", fallback=None)
+    sampling = Sampling(
+        location=config.get("sampling", "location", fallback=None),
+        num_samples=config.getint("sampling", "num_samples", fallback=None),
+        period_sec=config.getint("sampling", "period_sec", fallback=None),
+    )
 
-    # LED / display schedule
+    # LED / display schedule - initialize from config file
     led_schedule = None
     disp_schedule = None
     light_schedule = None
+
+    if config.has_section("light_schedule"):
+        try:
+            day_start = config.get("light_schedule", "day_start", fallback=None)
+            day_end = config.get("light_schedule", "day_end", fallback=None)
+            off_start = config.get("light_schedule", "disp_off_start", fallback=None)
+            off_end = config.get("light_schedule", "disp_off_end", fallback=None)
+            led_night = config.getint("light_schedule", "led_level_night", fallback=None)
+            led_day = config.getint("light_schedule", "led_level_day", fallback=None)
+            disp_night = config.getint("light_schedule", "disp_level_night", fallback=None)
+            disp_day = config.getint("light_schedule", "disp_level_day", fallback=None)
+
+            if all([day_start, day_end, led_night is not None, led_day is not None]):
+                led_schedule = parse_light_schedule(
+                    f"{led_night}/{day_start}-{day_end}/{led_day}"
+                )
+            if all([off_start, off_end, disp_night is not None, disp_day is not None]):
+                disp_schedule = parse_light_schedule(
+                    f"{disp_night}/{off_start}-{off_end}/{disp_day}"
+                )
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Error parsing light schedule from config file: {e}")
+
+    # Override with command-line arguments
+    args = sys.argv[1:]
 
     for arg in args:
         if "/" in arg and ":" not in arg:
@@ -356,10 +408,10 @@ def main():
         elif "*" in arg:
             parts = arg.split("*")
             if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-                num_samples = int(parts[0])
-                period_sec = int(parts[1])
+                sampling.num_samples = int(parts[0])
+                sampling.period_sec = int(parts[1])
         elif arg.startswith("loc:"):
-            location = arg[4:]
+            sampling.location = arg[4:]
         elif arg.startswith("led:"):
             led_schedule = parse_light_schedule(arg[4:])
         elif arg.startswith("disp:"):
@@ -379,29 +431,22 @@ def main():
             disp_day_level=disp_schedule[3],
         )
 
-    if not all(
-        [
-            influx_host,
-            influx_org,
-            influx_bucket,
-            airgradient_host,
-            location,
-            num_samples,
-            period_sec,
-            light_schedule,
-        ]
+    if not (
+        all([influx_host, influx_org, influx_bucket, airgradient_host, light_schedule])
+        and sampling.is_complete()
     ):
-        logger.error(f"usage: {usage_str}")
         logger.error("Error: Missing or invalid arguments")
+        logger.error("Check that relay-airgradient.ini is present in same directory as this script and/or optional command-line arguments are correct.")
+        logger.error(f"Usage: {usage_str}")
         sys.exit(1)
 
     influx = InfluxServer(influx_host, influx_org, influx_bucket, influx_token)
     airgradient = AirgradientServer(airgradient_host)
 
     logger.info(
-        f"Polling data from '{airgradient_host}' every {period_sec} seconds, "
-        f"averaging over {num_samples} samples, and posting for location "
-        f"'{location}' to InfluxDB (org '{influx_org}', bucket "
+        f"Polling data from '{airgradient_host}' every {sampling.period_sec} seconds, "
+        f"averaging over {sampling.num_samples} samples and posting for location "
+        f"'{sampling.location}' to InfluxDB at {influx_host} (org '{influx_org}', bucket "
         f"'{influx_bucket}')."
     )
     logger.info(f"Light schedule: {light_schedule}")
@@ -409,9 +454,7 @@ def main():
     run(
         airgradient,
         influx,
-        location,
-        num_samples,
-        period_sec,
+        sampling,
         light_schedule,
     )
 

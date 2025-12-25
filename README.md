@@ -6,10 +6,13 @@
 The script `relay-airgradient.py` transfers air quality measurement data from
 an AirGradient device's [local
 API](https://github.com/airgradienthq/arduino/blob/master/docs/local-server.md)
-to InfluxDB (V2 or later) for time-series storage and analysis. This script
-can be run on any device on your local network where you can install
-Python. The Airgradient itself does not need a cloud connection, nor do you
-need to modify the firmware.
+to InfluxDB (V2 or later) for time-series storage and analysis. It can also,
+optionally, adjust the LED and display brightness for day and night, as well
+as extend the display life by turning it off for a designated period.
+
+This script can be run on any device on your local network where you can
+install Python. The Airgradient itself does not need a cloud connection, nor
+do you need to modify the firmware.
 
 
 ## Features
@@ -22,13 +25,15 @@ need to modify the firmware.
 - **Robust Error Handling**: Failed data retrievals and InfluxDB submissions
   are tolerated. Failed InfluxDB posts are queued for retry on the next
   successful connection, ensuring no data loss during internet disruptions.
+- **Light schedule**: Optionally adjust LED/display brightness per day/night
+  schedule.
 
 ### Non-features and TODOs
 
 - Deployment, monitoring, and high availability measures such as restart on
   failure are left to the user.
 - Tests are desirable but not implemented yet.
-- Config file support
+- Config file support (coming soon).
 - File-based persistence for the Influx queue could be considered.
 
 
@@ -47,9 +52,13 @@ need to modify the firmware.
 INFLUX_TOKEN=xxx ./relay-airgradient.py <influx_host>/<influx_org>/<influx_bucket> <airgradient_host> loc:<location> <n*period_sec> led:LL/HHMM-HHMM/LL disp:LL/HHMM-HHMM/LL
 ```
 
-### Arguments
+### Config and arguments
 
-All arguments are required and can be specified in any order:
+Configuration is read from the file
+[relay-airgradient.ini](./relay-airgradient.ini) in the same directory as the
+script and then can be overridden by arguments on the command line.
+
+All arguments are optional and can be specified in any order:
 
 - `<influx_host>/<influx_org>/<influx_bucket>`: InfluxDB host, organization,
   and bucket (e.g., `influx.example.com/my-org/my-bucket`)

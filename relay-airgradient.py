@@ -16,6 +16,7 @@ import json
 from datetime import datetime, timedelta
 from configparser import ConfigParser
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 
 
@@ -139,7 +140,7 @@ class LightSchedule:
         self.disp_day_level = disp_day_level
 
     def __str__(self):
-        # Format the light schedule as "led:LL/HHMM-HHMM/LL disp:LL/HHMM-HHMM/LL"
+        # Format the light schedule as "led:LL/HHMM-HHMM/LL] [disp:LL/HHMM-HHMM/LL"
         led_schedule = f"{self.led_night_level}/{self.day_start.strftime('%H%M')}-{self.day_end.strftime('%H%M')}/{self.led_day_level}"
         disp_schedule = f"{self.disp_night_level}/{self.off_start.strftime('%H%M')}-{self.off_end.strftime('%H%M')}/{self.disp_day_level}"
         return f"led:{led_schedule} disp:{disp_schedule}"
@@ -201,9 +202,18 @@ def process_post_queue(influx: InfluxServer):
         data = post_data.encode(UTF8_ENCODING)
         req = Request(url, data=data, headers=influx.headers, method='POST')
 
-        with urlopen(req, timeout=INFLUX_TIMEOUT_SEC) as response:
-            status_code = response.status
-            logger.debug(f"InfluxDB response status: {status_code}")
+        try:
+            with urlopen(req, timeout=INFLUX_TIMEOUT_SEC) as response:
+                status_code = response.status
+                logger.debug(f"InfluxDB response status: {status_code}")
+        except HTTPError as e:
+            if e.code == 400:
+                logger.error(f"InfluxDB returned 400 BAD REQUEST. Dropping malformed data from queue.")
+                logger.error(f"Request body: {post_data}")
+                post_queue.pop(0)
+                continue
+            else:
+                raise
 
         post_queue.pop(0)
 
@@ -262,7 +272,8 @@ def run(
             try:
                 data = get_airgradient(airgradient)
                 converted = convert_data(data)
-                samples.append(converted)
+                if converted:
+                    samples.append(converted)
             except Exception as e:
                 logger.warning(f"Error collecting sample: {type(e).__name__}: {e}")
 
@@ -276,7 +287,7 @@ def run(
             # Set target time for next sample
             next_sample_time += timedelta(seconds=sampling.period_sec)
 
-        if samples:
+        if samples and samples[0].keys():
             window_center_time = window_start_time + timedelta(
                 seconds=sampling.period_sec * sampling.num_samples / 2
             )
@@ -285,15 +296,16 @@ def run(
                 values = [s[key] for s in samples if key in s]
                 averaged_data[key] = round(sum(values) / len(values), 2)
 
-            try:
-                post_influx(
-                    influx,
-                    sampling.location,
-                    window_center_time,
-                    averaged_data,
-                )
-            except Exception as e:
-                logger.warning(f"Error posting to InfluxDB: {type(e).__name__}: {e}")
+            if averaged_data:
+                try:
+                    post_influx(
+                        influx,
+                        sampling.location,
+                        window_center_time,
+                        averaged_data,
+                    )
+                except Exception as e:
+                    logger.warning(f"Error posting to InfluxDB: {type(e).__name__}: {e}")
         else:
             logger.warning("No samples collected; posting to InfluxDB skipped.")
 
